@@ -8,18 +8,26 @@ if (!requireNamespace("grid", quietly = TRUE)) install.packages("grid")
 library(jpeg)
 library(png)
 library(tools)
+library(grid)
+# Font Parameter recommend (24, 2.3, 1.05, 002, 1.5)
+g_quote_size <- 22           # range (12, 30)            Verse font size                           To increase font size, select value < 24
+g_url_size <- 2.3            # range (1, 4)              Url font size                             To increase font size, select value >
+x_axis_padding <- 1.05       # range (1, 1.1)            X axis padding ( left, right padding )    To increase font size, select value >
+top_padding_size <- 0.02     # range (0, 0.03)           Y axis padding ( top, bottom padding )    To increase font size, select value >
+bottom_padding_size <- 1.5   # range (1, 2.5)            Y axis padding ( top, bottom padding )    To increase font size, select value >
 
-# Set the directory path and quote file name
-dir_path <- "/home/cake/Downloads/Archive"
-quote_file <- "quotes.txt"
+dir_path <- "/home/cake/Downloads/Archive"               # Set the directory path and quote file name
+quote_file <- "quotes.txt"                               # Set the directory path and quote file name
 
 # Read the quotes
 quotes <- readLines(file.path(dir_path, quote_file), warn = FALSE)
 # Remove quotation marks and trim whitespace
 quotes <- gsub('^"|"$', '', trimws(quotes))
 
+quotes <- toupper(quotes)
 # Function to wrap text
-wrap_text <- function(text, width = 28.8) {
+
+wrap_text <- function(text, width = g_quote_size) {
   paste(strwrap(text, width = width), collapse = "\n")
 }
 
@@ -34,19 +42,6 @@ get_dominant_colors <- function(img, n = 3) {
   col_freq <- table(colors)
   dominant <- names(sort(col_freq, decreasing = TRUE)[1:n])
   return(dominant)
-}
-calculate_text_width <- function(text, font_size) {
-  # Split the text into lines
-  lines <- strsplit(text, "\n")[[1]]
-  
-  # Calculate the width of each line
-  line_widths <- sapply(lines, function(line) {
-    strwidth(line, units = "inches", cex = font_size)  # Assuming 12 pt is the base font size
-  })
-  
-  # Return the maximum width
-  print(lines)
-  max(line_widths)
 }
 
 calculate_image_brightness <- function(img) {
@@ -107,10 +102,10 @@ process_image <- function(image_file, quote,
   
   # Add original image
   rasterImage(img, 0, 0, 1, 1)
-  cake <- calculate_text_width(quote, quote_size) * 96
-  print((lengths(regmatches(quote, gregexpr("\n", quote))) + 1))
-  total_height <- (lengths(regmatches(quote, gregexpr("\n", quote))) + 1) * strheight("A", cex = 2.4) * 1.75
-  
+
+  total_height <- (lengths(regmatches(quote, gregexpr("\n", quote))) + bottom_padding_size) * strheight("A", cex = quote_size) * 1.75
+  total_height <- height / 700 * total_height
+
   brightness <- calculate_image_brightness(img)
   
   # Adjust overlay opacity based on brightness
@@ -137,10 +132,10 @@ process_image <- function(image_file, quote,
     quote_y_position <- 0.35
   }
   
-  text(x = 0.5, y = total_height - 0.02, labels = quote, col = "white", cex = 2.4, adj = c(0.5, 1), family = "Copperplate Gothic Std 29 BC")
-  
+  text(x = 0.5, y = total_height - top_padding_size, labels = quote, col = "white", cex = c((quote_size * width / 466 * x_axis_padding), (quote_size * height / 700)), adj = c(0.5, 1, 3), family = "Copperplate Gothic Std 29 BC")
+
   # Add website URL to the right
-  # text(x = 0.5, y = url_y_position, labels = website_url, col = "white", cex = width / cake * url_size, adj = c(0.5, 1))
+  text(x = 0.5, y = url_y_position, labels = website_url, col = "white", cex = c((url_size * width / 466 * x_axis_padding), (url_size * height / 700)), adj = c(0.5, 1))
   
   dev.off()
   
@@ -155,17 +150,18 @@ for (i in seq_along(image_files)) {
   quote_index <- (i - 1) %% length(wrapped_quotes) + 1
   current_image <- image_files[i]
   current_quote <- wrapped_quotes[quote_index]
-  changed_quote <- paste0(current_quote, '\n', 'data.com')
+  changed_quote <- paste0(current_quote, '\n', '')
+  changed_quote <- paste0(changed_quote, '\n', '')
   
   tryCatch({
     process_image(
       current_image, 
       changed_quote, 
-      overlay_height = 0.5, 
+      overlay_height = 0.5,
       overlay_opacity = 0.2,
-      quote_size = 2.4,
+      quote_size = 1.6 + (30 - g_quote_size) / 10,
       quote_y_position = 0.45,
-      url_size = 2.4,
+      url_size = g_url_size,
       url_x_position = 0.98,
       url_y_position = 0.05
     )
