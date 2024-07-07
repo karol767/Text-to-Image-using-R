@@ -1,63 +1,63 @@
-# Load the necessary libraries
-library(raster)
-library(ggplot2)
-library(stringr)
-library(grid)
+# Set the directory path and file names
 
-# Set the directory path and file name
-dir_path <- "/home/cake/Downloads"
-file_name <- "test.jpg"
 
-print(dir_path)
-print(file_name)
-
-if (!dir.exists(dir_path)) {
-  print("Directory does not exist!")
-} else {
-  print("Directory exists!")
+# Check if jpeg package is installed, if not, install it
+if (!requireNamespace("jpeg", quietly = TRUE)) {
+  install.packages("jpeg")
 }
 
+# Load the jpeg package
+library(jpeg)
+
+# Set the directory path and file names
+dir_path <- "/home/cake/Downloads"
+image_file <- "test.jpg"
+quote_file <- "quotes.txt"
+
 # Read the image
-tryCatch({
-  img <- raster(file.path(file_path, file_name))
-}, error = function(e) {
-  print(paste("Error reading raster:", e))
-})
+img <- readJPEG(file.path(dir_path, image_file))
 
-# Get the dominant colors of the image
-dominant_colors <- hist(img[], breaks = 3, plot = FALSE)$colors
+# Get image dimensions
+height <- dim(img)[1]
+width <- dim(img)[2]
 
-# Set the transparency of the overlay
-alpha <- 0.8
+# Function to get dominant colors
+get_dominant_colors <- function(img, n = 3) {
+  colors <- rgb(img[,,1], img[,,2], img[,,3])
+  col_freq <- table(colors)
+  dominant <- names(sort(col_freq, decreasing = TRUE)[1:n])
+  return(dominant)
+}
 
-# Create a rectangle with the dominant colors
-overlay <- rgb( dominant_colors[1], dominant_colors[2], dominant_colors[3], alpha )
+# Get dominant colors
+dominant_colors <- get_dominant_colors(img)
+overlay_color <- col2rgb(dominant_colors[1]) / 255
 
-# Read the quote from the file
-quote_file <- "/home/cake/Downloads/quotes.txt"
-quote <- readLines(quote_file)
+# Create overlay
+overlay <- rgb(overlay_color[1], overlay_color[2], overlay_color[3], alpha = 0.8)
 
-# Determine the font size and color based on the image dimensions
-img_width <- nrow(img)
-img_height <- ncol(img)
-font_size <- min(img_width / 20, img_height / 20)
-font_color <- rgb(0, 0, 0)  # black
+# Read the quote
+quote <- readLines(file.path(dir_path, quote_file))
+quote <- paste(strwrap(quote, width = 40), collapse = "\n")  # Adjust width as needed
 
-# Create a text object for the quote
-quote_text <- paste0(quote, "\n", "Your Website URL")
-quote_text_grob <- textGrob(quote_text, hjust = 0, vjust = 1, gp = gpar(fontsize = font_size, col = font_color))
+# Your website URL
+website_url <- "GODSVERSE.ORG"
 
-# Add the text to the overlay
-overlay_grob <- grobTree(rectGrob(x = c(0.1 * img_width, 0.9 * img_width), y = c(0.9 * img_height, 0.9 * img_height), width = 0.8 * img_width, height = 0.1 * img_height),
-                         quote_text_grob)
-print("#######")
-# Combine the image and overlay
-print(alpha)
-alpha_raster <- raster(alpha)
-combined_img <- overlay(img, alpha_raster, fun = "*")
+# Create a new plot
+jpeg(file.path(dir_path, "result.jpg"), width = width, height = height, units = "px", quality = 100)
+par(mar = c(0,0,0,0))
+plot(1, type = "n", xlim = c(0, 1), ylim = c(0, 1), axes = FALSE, xlab = "", ylab = "")
+  
+# Add original image
+rasterImage(img, 0, 0, 1, 1)
 
-print("@@@@@@")
-# Save the output image
-png(file.path(dir_path, "output.png"), width = img_width, height = img_height)
-grid.draw(gList(combined_img))
+# Add overlay
+rect(0, 0, 1, 0.3, col = overlay, border = NA)
+
+# Add quote
+text(0.5, 0.15, quote, col = "white", cex = 3, font = 1, adj = c(0.5, 0))
+
+# Add website URL
+text(0.5, 0.05, website_url, col = "white", cex = 3, font = 1, adj = c(0.5, 0))
+
 dev.off()
