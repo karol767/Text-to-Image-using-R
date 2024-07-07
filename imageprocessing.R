@@ -8,7 +8,6 @@ if (!requireNamespace("grid", quietly = TRUE)) install.packages("grid")
 library(jpeg)
 library(png)
 library(tools)
-library(grid)
 
 # Set the directory path and quote file name
 dir_path <- "/home/cake/Downloads/Archive"
@@ -20,15 +19,14 @@ quotes <- readLines(file.path(dir_path, quote_file), warn = FALSE)
 quotes <- gsub('^"|"$', '', trimws(quotes))
 
 # Function to wrap text
-wrap_text <- function(text, width = 40) {
+wrap_text <- function(text, width = 28.8) {
   paste(strwrap(text, width = width), collapse = "\n")
 }
 
 # Prepare wrapped quotes
 wrapped_quotes <- sapply(quotes, wrap_text)
-
 # Your website URL
-website_url <- "www.yourwebsite.com"
+website_url <- "GODSVERSE.ORG"
 
 # Function to get dominant colors
 get_dominant_colors <- function(img, n = 3) {
@@ -36,6 +34,39 @@ get_dominant_colors <- function(img, n = 3) {
   col_freq <- table(colors)
   dominant <- names(sort(col_freq, decreasing = TRUE)[1:n])
   return(dominant)
+}
+calculate_text_width <- function(text, font_size) {
+  # Split the text into lines
+  lines <- strsplit(text, "\n")[[1]]
+  
+  # Calculate the width of each line
+  line_widths <- sapply(lines, function(line) {
+    strwidth(line, units = "inches", cex = font_size)  # Assuming 12 pt is the base font size
+  })
+  
+  # Return the maximum width
+  print(lines)
+  max(line_widths)
+}
+
+calculate_image_brightness <- function(img) {
+  # Convert to grayscale if it's an RGB image
+  if (dim(img)[3] == 3) {
+    gray_img <- 0.2989 * img[,,1] + 0.5870 * img[,,2] + 0.1140 * img[,,3]
+  } else {
+    gray_img <- img
+  }
+  
+  # Calculate average brightness
+  mean(gray_img)
+}
+get_contrasting_color <- function(color) {
+  rgb <- col2rgb(color)
+  if ((rgb[1]*0.299 + rgb[2]*0.587 + rgb[3]*0.114) / 255 > 0.5) {
+    return("black")
+  } else {
+    return("white")
+  }
 }
 
 # Function to process a single image
@@ -60,7 +91,7 @@ process_image <- function(image_file, quote,
   # Get image dimensions
   height <- dim(img)[1]
   width <- dim(img)[2]
-
+  
   # Get dominant colors
   dominant_colors <- get_dominant_colors(img)
   overlay_color <- col2rgb(dominant_colors[1]) / 255
@@ -71,29 +102,45 @@ process_image <- function(image_file, quote,
   # Create a new plot
   output_file <- file.path(dir_path, paste0("processed_", tools::file_path_sans_ext(image_file), ".png"))
   png(output_file, width = width, height = height, units = "px")
-  par(mar = c(0,0,0,0))
+  par(mar = c(0, 0, 0, 0))
   plot(1, type = "n", xlim = c(0, 1), ylim = c(0, 1), axes = FALSE, xlab = "", ylab = "")
   
   # Add original image
   rasterImage(img, 0, 0, 1, 1)
+  cake <- calculate_text_width(quote, quote_size) * 96
+  print((lengths(regmatches(quote, gregexpr("\n", quote))) + 1))
+  total_height <- (lengths(regmatches(quote, gregexpr("\n", quote))) + 1) * strheight("A", cex = 2.4) * 1.75
   
+  brightness <- calculate_image_brightness(img)
+  
+  # Adjust overlay opacity based on brightness
+  adjusted_opacity <- overlay_opacity + (brightness - 0.5) * 0.4
+  adjusted_opacity <- max(0.6, min(0.95, adjusted_opacity))  # Keep opacity between 0.6 and 0.95
+  
+  # Get dominant colors
+  dominant_colors <- get_dominant_colors(img)
+  overlay_color <- col2rgb(dominant_colors[1]) / 255
+  
+  # Darken the overlay color for lighter images
+  overlay_color <- overlay_color * (1 - brightness * 0.5)
+  
+  # Create overlay
+  overlay <- rgb(overlay_color[1], overlay_color[2], overlay_color[3], alpha = adjusted_opacity)
+  
+  # Determine text color based on overlay color
+  text_color <- get_contrasting_color(overlay)
   # Add overlay
-  rect(0, 0, 1, overlay_height, col = overlay, border = NA)
+  rect(0, 0, 1, total_height, col = overlay, border = NA)
   
-  text_grob <- textGrob(gsub("\n", " ", quote), gp = gpar(cex = quote_size), x = 0, y = 0)
-  text_width <- grid.width(text_grob)
-  
-  print(text_width)
-  
-  x_position <- 0 + (1 - text_width / width) / 2
   # Add quote
   if (is.null(quote_y_position)) {
-    quote_y_position <- overlay_height / 2
+    quote_y_position <- 0.35
   }
-  text(x = x_position, y = quote_y_position, labels = quote, col = "white", cex = quote_size, adj = c(0, 1))
+  
+  text(x = 0.5, y = total_height - 0.02, labels = quote, col = "white", cex = 2.4, adj = c(0.5, 1), family = "Copperplate Gothic Std 29 BC")
   
   # Add website URL to the right
-  text(x = url_x_position, y = url_y_position, labels = website_url, col = "white", cex = url_size, adj = c(1, 0.5))
+  # text(x = 0.5, y = url_y_position, labels = website_url, col = "white", cex = width / cake * url_size, adj = c(0.5, 1))
   
   dev.off()
   
@@ -108,22 +155,22 @@ for (i in seq_along(image_files)) {
   quote_index <- (i - 1) %% length(wrapped_quotes) + 1
   current_image <- image_files[i]
   current_quote <- wrapped_quotes[quote_index]
+  changed_quote <- paste0(current_quote, '\n', 'data.com')
   
   tryCatch({
     process_image(
       current_image, 
-      current_quote, 
-      overlay_height = 0.4, 
-      overlay_opacity = 0.7,
-      quote_size = 0.15 * 12,
-      quote_y_position = 0.2,
-      url_size = 1.5,
+      changed_quote, 
+      overlay_height = 0.5, 
+      overlay_opacity = 0.2,
+      quote_size = 2.4,
+      quote_y_position = 0.45,
+      url_size = 2.4,
       url_x_position = 0.98,
-      url_y_position = 0.03
+      url_y_position = 0.05
     )
   }, error = function(e) {
     cat("Error processing", current_image, ":", conditionMessage(e), "\n")
   })
 }
-
 cat("All images processed.\n")
