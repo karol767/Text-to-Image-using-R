@@ -1,3 +1,4 @@
+
 # Check if required packages are installed, if not, install them
 if (!requireNamespace("jpeg", quietly = TRUE)) install.packages("jpeg")
 if (!requireNamespace("png", quietly = TRUE)) install.packages("png")
